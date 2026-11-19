@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="hi">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>OnlyBroker Map</title>
+  <link href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css" rel="stylesheet" />
+  <script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: Arial, sans-serif;
+    }
+
+    body {
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+      width: 100vw;
+      overflow: hidden;
+      background: #111827;
+    }
+
+    .top-bar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      padding: 10px;
+      background: #1f2937;
+      border-bottom: 1px solid #374151;
+      z-index: 10;
+    }
+
+    .input-group {
+      display: flex;
+      flex-direction: column;
+      flex: 1 1 110px;
+      min-width: 95px;
+    }
+
+    .input-group label {
+      font-size: 11px;
+      color: #d1d5db;
+      margin-bottom: 3px;
+    }
+
+    .input-group input {
+      padding: 8px 10px;
+      border-radius: 6px;
+      border: 1px solid #4b5563;
+      background: #111827;
+      color: #ffffff;
+      font-size: 14px;
+      outline: none;
+    }
+
+    .search-btn {
+      align-self: flex-end;
+      padding: 9px 16px;
+      border: none;
+      border-radius: 6px;
+      background: #2563eb;
+      color: #ffffff;
+      font-size: 14px;
+      font-weight: bold;
+      cursor: pointer;
+    }
+
+    .map-wrapper {
+      position: relative;
+      flex: 1;
+      width: 100%;
+      height: 100%;
+    }
+
+    #map {
+      width: 100%;
+      height: 100%;
+    }
+
+    .error-banner {
+      display: none;
+      position: absolute;
+      top: 10px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: #dc2626;
+      color: #ffffff;
+      padding: 8px 14px;
+      border-radius: 6px;
+      font-size: 13px;
+      z-index: 20;
+    }
+  </style>
+</head>
+<body>
+  <form class="top-bar" id="coordForm">
+    <div class="input-group">
+      <label for="lngInput">Longitude</label>
+      <input type="number" step="any" id="lngInput" value="88.3639" required />
+    </div>
+
+    <div class="input-group">
+      <label for="latInput">Latitude</label>
+      <input type="number" step="any" id="latInput" value="22.5726" required />
+    </div>
+
+    <div class="input-group">
+      <label for="zoomInput">Zoom (0 - 22)</label>
+      <input type="number" step="0.5" min="0" max="22" id="zoomInput" value="15" required />
+    </div>
+
+    <button type="submit" class="search-btn">Search</button>
+  </form>
+
+  <div class="map-wrapper">
+    <div class="error-banner" id="errorBanner"></div>
+    <div id="map"></div>
+  </div>
+
+  <script>
+    const region = "{{ region }}";
+    const apiKey = "{{ api_key }}";
+
+    const lngInput = document.getElementById("lngInput");
+    const latInput = document.getElementById("latInput");
+    const zoomInput = document.getElementById("zoomInput");
+    const coordForm = document.getElementById("coordForm");
+    const errorBanner = document.getElementById("errorBanner");
+
+    function showError(msg) {
+      errorBanner.textContent = msg;
+      errorBanner.style.display = "block";
+      setTimeout(() => {
+        errorBanner.style.display = "none";
+      }, 4000);
+    }
+
+    const startLng = parseFloat(lngInput.value);
+    const startLat = parseFloat(latInput.value);
+    const startZoom = parseFloat(zoomInput.value);
+
+    const map = new maplibregl.Map({
+      container: "map",
+      style: `https://maps.geo.${region}.amazonaws.com/v2/styles/Standard/descriptor?key=${apiKey}`,
+      center: [startLng, startLat],
+      zoom: startZoom,
+      touchZoomRotate: true,
+      dragPan: true,
+      scrollZoom: true
+    });
+
+    map.addControl(
+      new maplibregl.NavigationControl({ showCompass: true, showZoom: true }),
+      "bottom-right"
+    );
+
+    const marker = new maplibregl.Marker({ color: "#ef4444" })
+      .setLngLat([startLng, startLat])
+      .addTo(map);
+
+    coordForm.addEventListener("submit", function (e) {
+      e.preventDefault();
+
+      const lng = parseFloat(lngInput.value);
+      const lat = parseFloat(latInput.value);
+      const zoom = parseFloat(zoomInput.value);
+
+      if (Number.isNaN(lng) || lng < -180 || lng > 180) {
+        showError("सही Longitude (-180 से 180) डालें।");
+        return;
+      }
+      if (Number.isNaN(lat) || lat < -90 || lat > 90) {
+        showError("सही Latitude (-90 से 90) डालें।");
+        return;
+      }
+      if (Number.isNaN(zoom) || zoom < 0 || zoom > 22) {
+        showError("Zoom 0 से 22 के बीच डालें।");
+        return;
+      }
+
+      marker.setLngLat([lng, lat]);
+      map.flyTo({
+        center: [lng, lat],
+        zoom: zoom,
+        essential: true
+      });
+    });
+
+    map.on("zoomend", function () {
+      zoomInput.value = Number(map.getZoom().toFixed(2));
+    });
+
+    map.on("error", function (err) {
+      console.error("Map error:", err);
+      showError("मैप लोड होने में दिक्कत आई। रीजन या API Key जांचें।");
+    });
+  </script>
+</body>
+  </html>
+  
